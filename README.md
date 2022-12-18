@@ -25,12 +25,17 @@ Features:
     * [ ] SystemD Journal
 
 ```go
+// Use this to wrap secret values
+type SecretVal interface{}
+
 type FloggerHead interface {
   log.Logger
   Fork() FloggerHead // this will log that a new thread was created (and who the parent is)
   Close() // this will log that the thread was destroyed (and who the parent was)
-  WriteLogEntry(level LogLevel, wait bool, message string, public_data, private_data map[string]interface{})
-  WriteAuditEntry(wait bool, message string, retain_until time.Time, public_data, private_data map[string]interface{}, tags []string)
+  Context() map[string]interface{}
+  SetContext(context map[string]interface{})
+  WriteLogEntry(level LogLevel, wait bool, message string, data map[string]interface{})
+  WriteAuditEntry(wait bool, message string, retain_until time.Time, data map[string]interface{}, tags []string)
 }
 
 type FloggerBody interface {
@@ -46,7 +51,7 @@ type FloggerBody interface {
 func NewFlogger(preset_name string) (FloggerHead, FloggerBody) {}
 
 type FloggerSink interface {
-  Type string // e.g. file, mongo, sql, journald
+  Type(context map[string]interface{}) string // e.g. file, mongo, sql, journald
   MinimumLogLevel() LogLevel
   SetMinimumLogLevel(level LogLevel)
   ConnectionInfo() string
@@ -62,7 +67,7 @@ type FloggerSink interface {
 type FloggerFormatter func (msg FloggerMessage) []byte
 
 type FloggerMessage struct {
-  Timestamp time.Time // JSON key: ts
+  Timestamp time.Time // JSON key: id
   ThreadNum int // JSON key: tn
   Level LogLevel // JSON key: lvl
   IsAudit bool // JSON key: lvl
@@ -70,8 +75,8 @@ type FloggerMessage struct {
   RetainUntil time.Time // JSON key: exp
   Tags []string // JSON key: tags
   Message string // JSON key: msg
-  PublicData map[string]interface{} // JSON key: data
-  FullData map[string]interface{} // JSON key: data
+  Context map[string]interface{} // JSON key: ctx
+  Data map[string]interface{} // JSON key: data
   Caller string // JSON key: caller
   Package string // JSON key: pkg
 }

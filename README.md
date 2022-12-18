@@ -60,14 +60,17 @@ type FloggerOutput interface {
 type FloggerFormatter func (msg FloggerMessage) []byte
 
 type FloggerMessage struct {
-  Level LogLevel
-  IsAudit bool
-  RetainUntil time.Time
-  Tags []string
-  Message string
-  PublicData map[string]interface{}
-  PrivateData map[string]interface{}
-  Caller string
+  Timestamp time.Time // JSON key; ts
+  ThreadNum int // JSON key: tn
+  Level LogLevel // JSON key: lvl
+  AuditId string // JSON key: id
+  RetainUntil time.Time // JSON key: exp
+  Tags []string // JSON key: tags
+  Message string // JSON key: msg
+  PublicData map[string]interface{} // JSON key: data
+  FullData map[string]interface{} // JSON key: data
+  Caller string // JSON key: caller
+  Package string // JSON key: pkg
 }
 
 func (msg FloggerMessage) ToJsonBytes(include_secret bool) ([]byte, error) {}

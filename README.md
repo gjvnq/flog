@@ -34,8 +34,17 @@ type FloggerHead interface {
   Close() // this will log that the thread was destroyed (and who the parent was)
   Context() map[string]interface{}
   SetContext(context map[string]interface{})
-  WriteLogEntry(level LogLevel, wait bool, message string, data map[string]interface{})
-  WriteAuditEntry(wait bool, message string, retain_until time.Time, data map[string]interface{}, tags []string)
+  WriteLogEntry(level LogLevel, message string, data map[string]interface{})
+  WriteAuditEntry(message string, retain_until time.Time, data map[string]interface{}, tags []string)
+  StartSpan(event_name string, data map[string]interface{}) FloggerSpan
+}
+
+type FloggerSpan interface {
+  Data() map[string]interface{}
+  SetData(data map[string]interface{})
+  AddData(data map[string]interface{})
+  Close(err error) // send nil if the event was successful 
+  StartSpan(event_name string, data map[string]interface{}) FloggerSpan
 }
 
 type FloggerBody interface {
@@ -59,7 +68,10 @@ type FloggerSink interface {
   SetFormater(format FloggerFormatter) errot
   IncludeSecretData() bool
   SetIncludeSecretData(flag bool)
-  WriteMessages(msg []FloggerMessage) error
+  WriteMessage(msg FloggerMessage) error
+  WriteStartSpan(span FloggerSpanStart) error
+  WriteEndSpan(span FloggerSpanEnd) error
+  WriteSpan(span FloggerSpanData) error
   Close() error
 }
 
@@ -83,4 +95,35 @@ type FloggerMessage struct {
 
 func (msg FloggerMessage) ToJsonBytes(include_secret bool) ([]byte, error) {}
 func (msg FloggerMessage) ToBsonStruct(include_secret bool) (bson.D, error) {}
+
+type FloggerSpanStart struct {
+  SpanId string
+  ParentId string
+  EventName string
+  StartTime time.Time
+  CallerStart string
+  Context map[string]interface{}
+  Data map[string]interface{}
+}
+
+type FloggerSpanEnd struct {
+  SpanId string
+  EndTime time.Time
+  Duration time.Time
+  CallerEnd string
+  EndError error
+  Result interface{}
+}
+
+type FloggerSpanData struct {
+  FloggerSpanStart
+  FloggerSpanEnd
+}
+
+func (msg FloggerSpanStart) ToJsonBytes(include_secret bool) ([]byte, error) {}
+func (msg FloggerSpanStart) ToBsonStruct(include_secret bool) (bson.D, error) {}
+func (msg FloggerSpanEnd) ToJsonBytes(include_secret bool) ([]byte, error) {}
+func (msg FloggerSpanEnd) ToBsonStruct(include_secret bool) (bson.D, error) {}
+func (msg FloggerSpanData) ToJsonBytes(include_secret bool) ([]byte, error) {}
+func (msg FloggerSpanData) ToBsonStruct(include_secret bool) (bson.D, error) {}
 ```

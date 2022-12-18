@@ -17,7 +17,7 @@ Features:
     * [ ] JSON
     * [ ] Human readable
     * [ ] Colorful human readable
-  * Multiple outputs targets:
+  * Multiple sinks:
     * [ ] Stdout
     * [ ] File
     * [ ] SQL DB
@@ -27,8 +27,8 @@ Features:
 ```go
 type FloggerHead interface {
   log.Logger
-  Fork() FloggerHead
-  Close()
+  Fork() FloggerHead // this will log that a new thread was created (and who the parent is)
+  Close() // this will log that the thread was destroyed (and who the parent was)
   WriteLogEntry(level LogLevel, wait bool, message string, public_data, private_data map[string]interface{})
   WriteAuditEntry(wait bool, message string, retain_until time.Time, public_data, private_data map[string]interface{}, tags []string)
 }
@@ -36,22 +36,24 @@ type FloggerHead interface {
 type FloggerBody interface {
   DefaultFormatter() FloggerFormatter
   SetDefaultFormatter(format FloggerFormatter)
-  Outputs() []FloggerOutput
-  AddOutput(output FloggerOutput)
-  DelOutput(output FloggerOutput)
-  RootHead() FloggerHead
+  Sinks() []FloggerSink
+  AddSink(output FloggerSink)
+  DelSink(output FloggerSink)
+  ThreadlessHead() FloggerHead // used when you need a global logger, ThreadNum will always be zero
   Close()
 }
 
-type FloggerOutput interface {
-  Kind() string // e.g. file, mongo, sql, journald
+func NewFlogger(preset_name string) (FloggerHead, FloggerBody) {}
+
+type FloggerSink interface {
+  Type string // e.g. file, mongo, sql, journald
   MinimumLogLevel() LogLevel
   SetMinimumLogLevel(level LogLevel)
   ConnectionInfo() string
   Formatter() FloggerFormatter // if null, it will output in JSON
   SetFormater(format FloggerFormatter) errot
-  AllowSecretData() bool
-  SetAllowSecretData(flag bool)
+  IncludeSecretData() bool
+  SetIncludeSecretData(flag bool)
   WriteMessages(msg []FloggerMessage) error
   Close() error
 }
@@ -60,10 +62,11 @@ type FloggerOutput interface {
 type FloggerFormatter func (msg FloggerMessage) []byte
 
 type FloggerMessage struct {
-  Timestamp time.Time // JSON key; ts
+  Timestamp time.Time // JSON key: ts
   ThreadNum int // JSON key: tn
   Level LogLevel // JSON key: lvl
-  AuditId string // JSON key: id
+  IsAudit bool // JSON key: lvl
+  MsgId string // JSON key: id
   RetainUntil time.Time // JSON key: exp
   Tags []string // JSON key: tags
   Message string // JSON key: msg
